@@ -37,14 +37,30 @@ Aggregation always **sums edit counts first**, then divides — never averages p
 ### 1. Backend
 
 ```powershell
+# Install dependencies (only needed once)
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload
-# → http://localhost:8000
-# → http://localhost:8000/docs  (interactive API docs)
 ```
 
-Or double-click **`start_backend.bat`**.
+Then start the server using **one** of these two equivalent commands:
+
+```powershell
+# Option A — from inside the backend/ folder
+cd c:\Users\ASUS\Desktop\flux1\backend
+python -m uvicorn app.main:app --reload
+```
+
+```powershell
+# Option B — from the repo root (flux1/)
+cd c:\Users\ASUS\Desktop\flux1
+python -m uvicorn app.main:app --app-dir backend --reload
+```
+
+> ⚠ **Common mistake:** running `uvicorn app.main:app` from the repo root **without** `--app-dir backend` causes an `ImportError` because Python can't find the `app` package there. Use `--app-dir backend` or `cd` into `backend/` first.
+
+API docs → http://localhost:8000/docs
+
+Or double-click **`start_backend.bat`** (uses `--app-dir backend` automatically).
 
 ### 2. Frontend
 
@@ -60,11 +76,14 @@ Or double-click **`start_frontend.bat`**.
 ### 3. Tests
 
 ```powershell
-cd backend
+# From inside backend/
+cd c:\Users\ASUS\Desktop\flux1\backend
 python -m pytest tests/ -v
-```
 
-Or double-click **`run_tests.bat`**.
+# OR from repo root
+cd c:\Users\ASUS\Desktop\flux1
+python -m pytest backend/tests/ -v
+```
 
 ---
 
