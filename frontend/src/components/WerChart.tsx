@@ -43,7 +43,7 @@ export function WerChart({ data, highWerThreshold, onBarClick }: WerChartProps) 
         <BarChart
           data={chartData}
           margin={{ top: 4, right: 16, left: 0, bottom: 4 }}
-          onClick={(d) => {
+          onClick={(d: any) => {
             if (d?.activePayload?.[0] && onBarClick) {
               onBarClick(d.activePayload[0].payload.fullName);
             }

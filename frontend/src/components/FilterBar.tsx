@@ -26,11 +26,13 @@ const AGE_GROUPS = [
 
 const selectStyle: React.CSSProperties = {
   padding: "0.45rem 0.75rem",
-  border: "1px solid #d1d5db",
-  borderRadius: "0.5rem",
+  border: "1px solid #3a5267",
+  borderRadius: "0.65rem",
   fontSize: "0.875rem",
-  color: "#374151",
-  background: "#fff",
+  fontWeight: 600,
+  color: "#f1f7ff",
+  background: "#101a26",
+  boxShadow: "0 4px 14px rgba(0,0,0,.16)",
   cursor: "pointer",
   minWidth: "140px",
 };
@@ -57,13 +59,14 @@ export function FilterBar({
         gap: "0.75rem",
         alignItems: "center",
         padding: "1rem",
-        background: "#f9fafb",
-        borderRadius: "0.75rem",
-        border: "1px solid #e5e7eb",
+        background: "linear-gradient(135deg, rgba(16,26,38,.98), rgba(13,18,29,.98))",
+        borderRadius: "0.9rem",
+        border: "1px solid #2b3d4f",
+        boxShadow: "0 10px 28px rgba(0,0,0,.16)",
       }}
     >
       <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-        <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#a9c0d8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           District
         </span>
         <select
@@ -80,7 +83,7 @@ export function FilterBar({
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-        <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#a9c0d8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           Gender
         </span>
         <select
@@ -96,7 +99,7 @@ export function FilterBar({
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-        <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#a9c0d8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           Age Group
         </span>
         <select
@@ -118,10 +121,10 @@ export function FilterBar({
           style={{
             padding: "0.45rem 1rem",
             background: "transparent",
-            border: "1px solid #d1d5db",
+            border: "1px solid #38516a",
             borderRadius: "0.5rem",
             fontSize: "0.875rem",
-            color: "#6b7280",
+            color: "#d5e7f7",
             cursor: "pointer",
             alignSelf: "flex-end",
           }}

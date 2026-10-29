@@ -1,6 +1,23 @@
-import { useState, useCallback } from "react";
-import { api } from "./api/client";
+import { useState, useEffect, useCallback } from "react";
+import { api, setStoredToken, getStoredToken } from "./api/client";
 import { useAsync } from "./hooks/useAsync";
+import { AppHeader } from "./components/AppHeader";
+import { AuthModal } from "./components/Auth/AuthModal";
+
+// User Portal Components
+import { UserDashboard } from "./components/UserPortal/UserDashboard";
+import { AiSubmissionPage } from "./components/UserPortal/AiSubmissionPage";
+import { UserSubmissionsHistory } from "./components/UserPortal/UserSubmissionsHistory";
+import { SubmissionDetailView } from "./components/UserPortal/SubmissionDetailView";
+import { UserProfileView } from "./components/UserPortal/UserProfileView";
+
+// Admin Portal Components
+import { AdminDashboard } from "./components/AdminPortal/AdminDashboard";
+import { UserManagement } from "./components/AdminPortal/UserManagement";
+import { AdminSubmissionsView } from "./components/AdminPortal/AdminSubmissionsView";
+import { AdminSettings } from "./components/AdminPortal/AdminSettings";
+
+// Reused Analytical Components
 import { ThresholdBar } from "./components/ThresholdBar";
 import { MetricsRibbon } from "./components/MetricsRibbon";
 import { DistrictCard } from "./components/DistrictCard";
@@ -11,9 +28,12 @@ import { ErrorDecomposition } from "./components/ErrorDecomposition";
 import { PriorityPanel } from "./components/PriorityPanel";
 import { MathModal } from "./components/MathModal";
 import { OverrideDrawer } from "./components/OverrideDrawer";
-import { LanguageDistributionChart } from "./components/LanguageDistributionChart";
-import { LanguageHeatmap } from "./components/LanguageHeatmap";
+import { ReviewQueue } from "./components/ReviewQueue";
+import { DatasetGovernance } from "./components/DatasetGovernance";
+import { CommunityMetricsRibbon } from "./components/CommunityMetricsRibbon";
+
 import type {
+  User,
   WerResult,
   WerCellDetail,
   CoverageCell,
@@ -22,7 +42,7 @@ import type {
 } from "./types";
 import { DEFAULT_THRESHOLDS } from "./types";
 
-// ─── Shared UI helpers ────────────────────────────────────────────────────────
+// ── Shared UI helpers ────────────────────────────────────────────────────────
 
 function LoadingSpinner({ label }: { label: string }) {
   return (
@@ -35,7 +55,7 @@ function LoadingSpinner({ label }: { label: string }) {
         justifyContent: "center",
         gap: "0.5rem",
         padding: "2rem",
-        color: "#9ca3af",
+        color: "#64748B",
       }}
     >
       <svg
@@ -45,10 +65,10 @@ function LoadingSpinner({ label }: { label: string }) {
         fill="none"
         style={{ animation: "spin 1s linear infinite" }}
       >
-        <circle cx="12" cy="12" r="10" stroke="#e5e7eb" strokeWidth="3" />
-        <path d="M12 2a10 10 0 0 1 10 10" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="12" cy="12" r="10" stroke="#E2E8F0" strokeWidth="3" />
+        <path d="M12 2a10 10 0 0 1 10 10" stroke="#2563EB" strokeWidth="3" strokeLinecap="round" />
       </svg>
-      <span>{label}</span>
+      <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
@@ -58,23 +78,23 @@ function ErrorMessage({ message, onRetry }: { message: string; onRetry?: () => v
     <div
       role="alert"
       style={{
-        background: "#fef2f2",
-        border: "1px solid #fca5a5",
-        borderRadius: "0.75rem",
+        background: "#FEF2F2",
+        border: "1px solid #FECACA",
+        borderRadius: "10px",
         padding: "1rem 1.25rem",
-        color: "#dc2626",
+        color: "#DC2626",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         gap: "1rem",
+        marginBottom: "1rem",
       }}
     >
       <div>
         <strong>Error:</strong> {message}
         {message.includes("fetch") && (
-          <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "#ef4444" }}>
-            Is the backend running? Start it with:{" "}
-            <code>cd backend && uvicorn app.main:app --reload</code>
+          <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "#EF4444" }}>
+            Is the backend running? Start with: <code>python -m uvicorn app.main:app --reload</code>
           </p>
         )}
       </div>
@@ -83,13 +103,13 @@ function ErrorMessage({ message, onRetry }: { message: string; onRetry?: () => v
           onClick={onRetry}
           style={{
             padding: "0.35rem 0.75rem",
-            background: "#fff",
-            border: "1px solid #fca5a5",
-            borderRadius: "0.5rem",
-            color: "#dc2626",
+            background: "#FFFFFF",
+            border: "1px solid #FECACA",
+            borderRadius: "6px",
+            color: "#DC2626",
             cursor: "pointer",
             fontSize: "0.82rem",
-            whiteSpace: "nowrap",
+            fontWeight: 600,
           }}
         >
           Retry
@@ -99,43 +119,47 @@ function ErrorMessage({ message, onRetry }: { message: string; onRetry?: () => v
   );
 }
 
-function EmptyState({ message, icon }: { message: string; icon?: string }) {
-  return (
-    <div
-      style={{
-        padding: "2.5rem",
-        textAlign: "center",
-        color: "#9ca3af",
-        background: "#f9fafb",
-        borderRadius: "0.75rem",
-        border: "1px dashed #e5e7eb",
-      }}
-    >
-      {icon && <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>{icon}</div>}
-      <p style={{ margin: 0, fontSize: "0.875rem" }}>{message}</p>
-    </div>
-  );
-}
+// ── Tab Navigation Configs ───────────────────────────────────────────────────
 
-// ─── Tab types ────────────────────────────────────────────────────────────────
-
-type TabId = "overview" | "coverage" | "diagnostics" | "languages" | "action";
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: "overview", label: "🏛️ District Overview" },
-  { id: "coverage", label: "🧩 Coverage Matrix" },
-  { id: "languages", label: "🗣️ Language Breakdown" },
-  { id: "diagnostics", label: "🔬 Diagnostics" },
-  { id: "action", label: "📋 Action Plan" },
+const USER_TABS = [
+  { path: "/app", label: "🏠 Contributor Dashboard" },
+  { path: "/app/submit", label: "🎙️ Submit New Input" },
+  { path: "/app/submissions", label: "📄 My Submissions History" },
+  { path: "/app/profile", label: "👤 Profile & Settings" },
 ];
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
+const ADMIN_TABS = [
+  { path: "/admin", label: "📊 Governance Overview" },
+  { path: "/admin/users", label: "👥 User Management" },
+  { path: "/admin/submissions", label: "📁 All Submissions" },
+  { path: "/admin/review", label: "🧑‍🔬 Review Queue" },
+  { path: "/admin/coverage", label: "🧩 Coverage Matrix" },
+  { path: "/admin/diagnostics", label: "🔬 Diagnostics" },
+  { path: "/admin/action-plan", label: "📋 Action Plan" },
+  { path: "/admin/governance", label: "📦 Datasets & Benchmark" },
+  { path: "/admin/settings", label: "⚙️ Settings" },
+];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [thresholds, setThresholds] = useState<Thresholds>(DEFAULT_THRESHOLDS);
+  // Navigation & URL state
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const p = window.location.pathname;
+      return p && p !== "/" ? p : "/app";
+    }
+    return "/app";
+  });
 
-  // Filter state (Coverage Matrix tab)
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authModalMode, setAuthModalMode] = useState<"login" | "register" | "admin_login" | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
+
+  // App settings state
+  const [thresholds, setThresholds] = useState<Thresholds>(DEFAULT_THRESHOLDS);
+  const [dataTier, setDataTier] = useState<"demo" | "community" | "combined">("combined");
+
+  // Filter state for Coverage Matrix
   const [filterDistrict, setFilterDistrict] = useState("");
   const [filterGender, setFilterGender] = useState("");
   const [filterAgeGroup, setFilterAgeGroup] = useState("");
@@ -147,6 +171,9 @@ export default function App() {
     age_group: string;
   } | null>(null);
 
+  // Selected submission ID for detail view
+  const [detailSubmissionId, setDetailSubmissionId] = useState<string | null>(null);
+
   // Math Modal (WER formula)
   const [mathModalCell, setMathModalCell] = useState<WerCellDetail | null>(null);
   const [mathModalLoading, setMathModalLoading] = useState(false);
@@ -154,16 +181,111 @@ export default function App() {
   // Override Drawer (Action Plan)
   const [overrideTarget, setOverrideTarget] = useState<CollectionPriority | null>(null);
 
-  // ── Data fetching ──────────────────────────────────────────────────────────
+  // Derive current portal: "admin" if path starts with "/admin", otherwise "user"
+  const currentPortal: "user" | "admin" = currentPath.startsWith("/admin") ? "admin" : "user";
+
+  // URL synchronization
+  const navigateTo = useCallback((path: string) => {
+    if (typeof window !== "undefined") {
+      window.history.pushState({}, "", path);
+    }
+    setCurrentPath(path);
+    if (!path.startsWith("/app/submissions/")) {
+      setDetailSubmissionId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const p = window.location.pathname;
+      setCurrentPath(p && p !== "/" ? p : "/app");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Initial Auth Check: load current user from token or auto-login default demo user
+  useEffect(() => {
+    let mounted = true;
+    setCheckingAuth(true);
+
+    const checkToken = getStoredToken();
+    if (checkToken) {
+      api.me()
+        .then((user) => {
+          if (mounted) setCurrentUser(user);
+        })
+        .catch(() => {
+          setStoredToken(null);
+          return api.login({ email: "user@bhashalens.org", password: "DemoUser123!" })
+            .then((res) => {
+              if (mounted) {
+                setStoredToken(res.token);
+                setCurrentUser(res.user);
+              }
+            });
+        })
+        .finally(() => {
+          if (mounted) setCheckingAuth(false);
+        });
+    } else {
+      api.login({ email: "user@bhashalens.org", password: "DemoUser123!" })
+        .then((res) => {
+          if (mounted) {
+            setStoredToken(res.token);
+            setCurrentUser(res.user);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (mounted) setCheckingAuth(false);
+        });
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // 1-Click Quick Switcher for Judges / Evaluators
+  const handleQuickDemoLogin = async (role: "user" | "admin") => {
+    try {
+      const email = role === "admin" ? "admin@bhashalens.org" : "user@bhashalens.org";
+      const password = role === "admin" ? "AdminPass123!" : "DemoUser123!";
+      const res = await api.login({ email, password });
+      setStoredToken(res.token);
+      setCurrentUser(res.user);
+      setAuthModalMode(null);
+
+      if (role === "admin") {
+        navigateTo("/admin");
+      } else {
+        navigateTo("/app");
+      }
+    } catch {
+      setAuthModalMode(role === "admin" ? "admin_login" : "login");
+    }
+  };
+
+  const handlePortalSwitch = (targetPortal: "user" | "admin") => {
+    if (targetPortal === "admin") {
+      if (currentUser?.role === "ADMIN" || currentUser?.role === "REVIEWER") {
+        navigateTo("/admin");
+      } else {
+        navigateTo("/admin/login");
+      }
+    } else {
+      navigateTo("/app");
+    }
+  };
+
+  // ── Analytical Data Fetching (Preserved) ───────────────────────────────────
 
   const { data: districtsData } = useAsync(() => api.districts(), []);
   const districts = districtsData?.districts ?? [];
 
-  const { data: summaryData, loading: summaryLoading, refetch: refetchSummary } = useAsync(
-    useCallback(
-      () => api.summary(thresholds),
-      [thresholds]
-    ),
+  const { data: summaryData, loading: summaryLoading } = useAsync(
+    useCallback(() => api.summary(thresholds), [thresholds]),
     [thresholds]
   );
 
@@ -197,37 +319,20 @@ export default function App() {
     [thresholds]
   );
 
-  // Language distribution (scoped to current filters)
   const {
-    data: languageData,
-    loading: languageLoading,
-    error: languageError,
-    refetch: refetchLanguages,
+    data: communityStatsData,
+    loading: communityStatsLoading,
+    refetch: refetchCommunityStats,
   } = useAsync(
-    useCallback(
-      () =>
-        api.languageDistribution({
-          district: filterDistrict || undefined,
-          gender: filterGender || undefined,
-          age_group: filterAgeGroup || undefined,
-        }),
-      [filterDistrict, filterGender, filterAgeGroup]
-    ),
-    [filterDistrict, filterGender, filterAgeGroup]
+    useCallback(() => api.communityStats(), []),
+    []
   );
 
-  // Full language matrix (district × language × age)
-  const {
-    data: languageMatrixData,
-    loading: languageMatrixLoading,
-    error: languageMatrixError,
-  } = useAsync(useCallback(() => api.languageMatrix(), []), []);
-
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Analytical Handlers (Preserved) ────────────────────────────────────────
 
   const handleCellSelect = (district: string, gender: string, age_group: string) => {
     setSelectedCell({ district, gender, age_group });
-    setActiveTab("diagnostics");
+    navigateTo("/admin/diagnostics");
   };
 
   const handleWerClick = async (cell: CoverageCell) => {
@@ -241,7 +346,6 @@ export default function App() {
       });
       setMathModalCell(detail);
     } catch {
-      // Show inline math from cell data as fallback
       setMathModalCell({
         district: cell.district,
         gender: cell.gender,
@@ -262,10 +366,9 @@ export default function App() {
 
   const handleDistrictClick = (district: string) => {
     setFilterDistrict(district);
-    setActiveTab("coverage");
+    navigateTo("/admin/coverage");
   };
 
-  // Derive selected cell's coverage data
   const selectedCoverageCell: CoverageCell | null = (() => {
     if (!selectedCell || !coverageData) return null;
     return (
@@ -278,7 +381,6 @@ export default function App() {
     );
   })();
 
-  // Filter coverage data
   const filteredCoverage = coverageData
     ? {
         ...coverageData,
@@ -294,569 +396,506 @@ export default function App() {
       }
     : null;
 
+  // Check if current route requires admin access
+  const isAdminRoute = currentPath.startsWith("/admin") && currentPath !== "/admin/login";
+  const userHasAdminAccess = currentUser?.role === "ADMIN" || currentUser?.role === "REVIEWER";
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#F8FAFC" }}>
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         * { box-sizing: border-box; }
         button:focus-visible, a:focus-visible, select:focus-visible,
         input:focus-visible, textarea:focus-visible {
-          outline: 2px solid #6366f1;
+          outline: 2px solid #2563EB;
           outline-offset: 2px;
         }
       `}</style>
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header
-        style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}
-      >
-        <div
-          style={{
-            maxWidth: "1400px",
-            margin: "0 auto",
-            padding: "0.75rem 1.5rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "0.5rem",
-          }}
+      {/* ── Global Header ──────────────────────────────────────────────────── */}
+      <AppHeader
+        currentPortal={currentPortal}
+        onSwitchPortal={handlePortalSwitch}
+        currentUser={currentUser}
+        onLoginRequest={(mode) => setAuthModalMode(mode || "login")}
+        onLogout={() => {
+          setCurrentUser(null);
+          navigateTo("/login");
+        }}
+        onQuickDemoLogin={handleQuickDemoLogin}
+      />
+
+      {/* ── Portal Navigation Sub-tabs ─────────────────────────────────────── */}
+      {!checkingAuth && currentPath !== "/login" && currentPath !== "/register" && currentPath !== "/admin/login" && (
+        <nav
+          aria-label="Portal Navigation"
+          style={{ background: "#FFFFFF", borderBottom: "1px solid #E2E8F0" }}
         >
-          <div>
-            <h1 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 800, color: "#1f2937" }}>
-              🌐 BhashaLens
-            </h1>
-            <p style={{ margin: "0.1rem 0 0", fontSize: "0.75rem", color: "#6b7280" }}>
-              District WER &amp; Speech Data Coverage Explorer · Bhasha &amp; Bol Bharat Hackathon
-            </p>
-          </div>
           <div
-            role="note"
-            aria-label="Demo data warning"
             style={{
-              background: "#fef9c3",
-              border: "1px solid #fcd34d",
-              borderRadius: "0.5rem",
-              padding: "0.4rem 0.85rem",
-              fontSize: "0.72rem",
-              fontWeight: 700,
-              color: "#92400e",
-              textAlign: "center",
+              maxWidth: "1400px",
+              margin: "0 auto",
+              padding: "0 1.5rem",
+              display: "flex",
+              overflowX: "auto",
+              gap: "0.25rem",
             }}
           >
-            ⚠ ILLUSTRATIVE BENCHMARK DATASET<br />
-            <span style={{ fontWeight: 400 }}>For Evaluation &amp; Methodology Demonstration Only</span>
+            {(currentPortal === "admin" && userHasAdminAccess ? ADMIN_TABS : USER_TABS).map((tab) => {
+              const isSelected = currentPath === tab.path;
+              return (
+                <button
+                  key={tab.path}
+                  type="button"
+                  onClick={() => navigateTo(tab.path)}
+                  style={{
+                    padding: "0.75rem 1.15rem",
+                    background: "none",
+                    border: "none",
+                    borderBottom: isSelected ? "2px solid #2563EB" : "2px solid transparent",
+                    color: isSelected ? "#2563EB" : "#64748B",
+                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
-        </div>
-      </header>
+        </nav>
+      )}
 
-      {/* ── Threshold Bar ──────────────────────────────────────────────────── */}
-      <ThresholdBar value={thresholds} onChange={setThresholds} />
+      {/* ── Analytical Ribbon Strips for Admin Analytics ────────────────────── */}
+      {currentPortal === "admin" && userHasAdminAccess && currentPath !== "/admin/settings" && (
+        <>
+          <div style={{ maxWidth: "1400px", margin: "1rem auto 0", padding: "0 1.5rem", width: "100%" }}>
+            <CommunityMetricsRibbon stats={communityStatsData ?? null} loading={communityStatsLoading} />
+          </div>
+          <ThresholdBar value={thresholds} onChange={setThresholds} />
+          {currentPath !== "/admin/users" && currentPath !== "/admin/submissions" && (
+            <MetricsRibbon stats={summaryData ?? null} loading={summaryLoading} />
+          )}
+        </>
+      )}
 
-      {/* ── Metrics Ribbon ─────────────────────────────────────────────────── */}
-      <MetricsRibbon stats={summaryData ?? null} loading={summaryLoading} />
-
-      {/* ── Nav Tabs ───────────────────────────────────────────────────────── */}
-      <nav
-        aria-label="Dashboard sections"
-        style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}
-      >
-        <div
-          style={{
-            maxWidth: "1400px",
-            margin: "0 auto",
-            padding: "0 1.5rem",
-            display: "flex",
-            overflowX: "auto",
-          }}
-        >
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: "0.75rem 1.25rem",
-                background: "none",
-                border: "none",
-                borderBottom:
-                  activeTab === tab.id ? "2px solid #6366f1" : "2px solid transparent",
-                color: activeTab === tab.id ? "#6366f1" : "#6b7280",
-                fontWeight: activeTab === tab.id ? 700 : 500,
-                fontSize: "0.875rem",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "color 0.15s, border-color 0.15s",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {/* ── Main Content ───────────────────────────────────────────────────── */}
-      <main style={{ maxWidth: "1400px", margin: "0 auto", padding: "1.25rem 1.5rem" }}>
-
-        {/* ═══ Tab 1: District Overview ═══════════════════════════════════════ */}
-        {activeTab === "overview" && (
-          <section aria-labelledby="heading-overview">
-            <h2
-              id="heading-overview"
-              style={{ margin: "0 0 1rem", fontSize: "1rem", fontWeight: 700, color: "#1f2937" }}
-            >
-              District Overview
-            </h2>
-
-            {overviewLoading && <LoadingSpinner label="Loading overview…" />}
-            {overviewError && (
-              <ErrorMessage message={overviewError} onRetry={refetchOverview} />
+      {/* ── Main View Content Area ─────────────────────────────────────────── */}
+      <main style={{ maxWidth: "1400px", margin: "0 auto", padding: "1.5rem", flex: 1, width: "100%" }}>
+        {checkingAuth ? (
+          <LoadingSpinner label="Authenticating session…" />
+        ) : (
+          <>
+            {/* ═══ STANDALONE AUTH PAGES ═══════════════════════════════════════ */}
+            {currentPath === "/login" && (
+              <div style={{ padding: "2rem 0" }}>
+                <AuthModal
+                  initialMode="login"
+                  isInline
+                  onSuccess={(user) => {
+                    setCurrentUser(user);
+                    navigateTo("/app");
+                  }}
+                />
+              </div>
             )}
 
-            {!overviewLoading && !overviewError && overviewData && (
-              <>
-                {overviewData.length === 0 ? (
-                  <EmptyState message="No district data available." icon="🗺️" />
-                ) : (
-                  <>
-                    {/* WER Chart */}
-                    <div
-                      style={{
-                        background: "#fff",
-                        borderRadius: "0.75rem",
-                        padding: "1.25rem",
-                        marginBottom: "1.25rem",
-                        border: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <p
-                        style={{
-                          margin: "0 0 0.75rem",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          color: "#6b7280",
-                        }}
-                      >
-                        WER by District — aggregate across all genders &amp; age groups. Red dashed line = alert threshold ({thresholds.high_wer_threshold}%).
-                        Click a bar to view its coverage.
-                      </p>
-                      <WerChart
-                        data={overviewData}
-                        highWerThreshold={thresholds.high_wer_threshold}
-                        onBarClick={handleDistrictClick}
-                      />
-                    </div>
+            {currentPath === "/register" && (
+              <div style={{ padding: "2rem 0" }}>
+                <AuthModal
+                  initialMode="register"
+                  isInline
+                  onSuccess={(user) => {
+                    setCurrentUser(user);
+                    navigateTo("/app");
+                  }}
+                />
+              </div>
+            )}
 
-                    {/* District cards */}
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                        gap: "0.75rem",
-                      }}
-                    >
-                      {overviewData.map((result: WerResult) => (
-                        <DistrictCard
-                          key={result.district}
-                          result={result}
-                          onClick={() => handleDistrictClick(result.district)}
-                        />
-                      ))}
-                    </div>
-                  </>
+            {currentPath === "/admin/login" && (
+              <div style={{ padding: "2rem 0" }}>
+                <AuthModal
+                  initialMode="admin_login"
+                  isInline
+                  onSuccess={(user) => {
+                    setCurrentUser(user);
+                    navigateTo("/admin");
+                  }}
+                />
+              </div>
+            )}
+
+            {/* ═══ ADMIN AUTHORIZATION GUARD ══════════════════════════════════ */}
+            {isAdminRoute && !userHasAdminAccess && (
+              <div
+                style={{
+                  maxWidth: "600px",
+                  margin: "3rem auto",
+                  background: "#FFFFFF",
+                  border: "1px solid #FECACA",
+                  borderRadius: "14px",
+                  padding: "2rem",
+                  textAlign: "center",
+                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
+                }}
+              >
+                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🛡️</div>
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#991B1B", margin: "0 0 0.5rem" }}>
+                  Administrative Authorization Required
+                </h2>
+                <p style={{ fontSize: "0.88rem", color: "#64748B", margin: "0 0 1.5rem", lineHeight: 1.6 }}>
+                  You are currently logged in as a standard contributor. The Administrative Portal requires an <strong>ADMIN</strong> or <strong>REVIEWER</strong> role.
+                </p>
+                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickDemoLogin("admin")}
+                    style={{
+                      background: "#0D9488",
+                      color: "#FFFFFF",
+                      border: "none",
+                      padding: "0.6rem 1.25rem",
+                      borderRadius: "8px",
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Authenticate as Demo Admin →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/app")}
+                    style={{
+                      background: "#F1F5F9",
+                      border: "1px solid #CBD5E1",
+                      color: "#475569",
+                      padding: "0.6rem 1rem",
+                      borderRadius: "8px",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Return to User Portal
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ═══ USER PORTAL ROUTES ══════════════════════════════════════════ */}
+            {currentPortal === "user" && (
+              <>
+                {/* /app — User Dashboard */}
+                {currentPath === "/app" && currentUser && (
+                  <UserDashboard
+                    user={currentUser}
+                    onNavigate={navigateTo}
+                    onSelectSubmission={(subId) => {
+                      setDetailSubmissionId(subId);
+                      navigateTo(`/app/submissions/${subId}`);
+                    }}
+                  />
+                )}
+
+                {/* /app/submit — Dedicated AI Input Submission */}
+                {currentPath === "/app/submit" && currentUser && (
+                  <AiSubmissionPage
+                    user={currentUser}
+                    onNavigate={navigateTo}
+                    onSubmissionComplete={() => {
+                      refetchCommunityStats();
+                    }}
+                  />
+                )}
+
+                {/* /app/submissions — User's Submissions History */}
+                {currentPath === "/app/submissions" && (
+                  <UserSubmissionsHistory
+                    onNavigate={navigateTo}
+                    onSelectSubmission={(subId) => {
+                      setDetailSubmissionId(subId);
+                      navigateTo(`/app/submissions/${subId}`);
+                    }}
+                  />
+                )}
+
+                {/* /app/submissions/:id — Individual Submission Details */}
+                {(currentPath.startsWith("/app/submissions/") || detailSubmissionId) && (
+                  <SubmissionDetailView
+                    submissionId={detailSubmissionId || currentPath.split("/").pop() || ""}
+                    onBack={() => navigateTo("/app/submissions")}
+                  />
+                )}
+
+                {/* /app/profile — User Profile */}
+                {currentPath === "/app/profile" && currentUser && (
+                  <UserProfileView
+                    user={currentUser}
+                    onNavigate={navigateTo}
+                    onLogout={() => {
+                      setCurrentUser(null);
+                      navigateTo("/login");
+                    }}
+                  />
                 )}
               </>
             )}
-          </section>
-        )}
 
-        {/* ═══ Tab 2: Coverage Matrix ══════════════════════════════════════════ */}
-        {activeTab === "coverage" && (
-          <section aria-labelledby="heading-coverage">
-            <h2
-              id="heading-coverage"
-              style={{ margin: "0 0 0.75rem", fontSize: "1rem", fontWeight: 700, color: "#1f2937" }}
-            >
-              Evidence Coverage Matrix
-            </h2>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", color: "#6b7280", lineHeight: 1.6 }}>
-              Each cell shows WER or recording count for a district × gender × age group.
-              <strong> No data ≠ 0% WER.</strong> Click a cell to inspect it in Diagnostics.
-              Click a WER% to see the aggregate formula.
-            </p>
-
-            {/* Filters */}
-            <FilterBar
-              districts={districts}
-              selectedDistrict={filterDistrict}
-              selectedGender={filterGender}
-              selectedAgeGroup={filterAgeGroup}
-              onDistrictChange={setFilterDistrict}
-              onGenderChange={setFilterGender}
-              onAgeGroupChange={setFilterAgeGroup}
-              onReset={() => {
-                setFilterDistrict("");
-                setFilterGender("");
-                setFilterAgeGroup("");
-              }}
-            />
-
-            <div style={{ marginTop: "1rem" }}>
-              {coverageLoading && <LoadingSpinner label="Loading coverage matrix…" />}
-              {coverageError && (
-                <ErrorMessage message={coverageError} onRetry={refetchCoverage} />
-              )}
-
-              {!coverageLoading && !coverageError && filteredCoverage && (
-                <div
-                  style={{
-                    background: "#fff",
-                    borderRadius: "0.75rem",
-                    padding: "1rem",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <CoverageMatrix
-                    data={filteredCoverage}
-                    onCellSelect={handleCellSelect}
-                    onWerClick={handleWerClick}
-                    selectedCell={selectedCell}
+            {/* ═══ ADMIN PORTAL ROUTES ═════════════════════════════════════════ */}
+            {currentPortal === "admin" && userHasAdminAccess && currentUser && (
+              <>
+                {/* /admin — Admin Overview */}
+                {currentPath === "/admin" && (
+                  <AdminDashboard
+                    adminUser={currentUser}
+                    onNavigate={navigateTo}
+                    onSelectSubmission={(subId) => {
+                      setDetailSubmissionId(subId);
+                      navigateTo(`/app/submissions/${subId}`);
+                    }}
                   />
-                </div>
-              )}
-            </div>
-
-            {/* Split view: ErrorDecomposition + PriorityPanel */}
-            {selectedCoverageCell && (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "1rem",
-                  marginTop: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    background: "#fff",
-                    borderRadius: "0.75rem",
-                    padding: "1rem",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <ErrorDecomposition cell={selectedCoverageCell} />
-                </div>
-                <div
-                  style={{
-                    background: "#fff",
-                    borderRadius: "0.75rem",
-                    padding: "1rem",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <h3
-                    style={{
-                      margin: "0 0 0.75rem",
-                      fontSize: "0.875rem",
-                      fontWeight: 700,
-                      color: "#374151",
-                    }}
-                  >
-                    📋 Top Collection Priorities
-                  </h3>
-                  {prioritiesData && (
-                    <PriorityPanel
-                      priorities={prioritiesData.priorities.slice(0, 5)}
-                      disclaimer={prioritiesData.disclaimer}
-                      thresholds={prioritiesData.thresholds}
-                      onGiveFeedback={setOverrideTarget}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Language breakdown for currently filtered district / selection */}
-            <div
-              style={{
-                background: "#fff",
-                borderRadius: "0.75rem",
-                padding: "1.25rem",
-                border: "1px solid #e5e7eb",
-                marginTop: "1.25rem",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#1f2937" }}>
-                    🗣️ Language Distribution in {filterDistrict ? filterDistrict : "All Districts"}
-                  </h3>
-                  <p style={{ margin: "0.15rem 0 0", fontSize: "0.75rem", color: "#6b7280" }}>
-                    Speech recording representation by language and age group for selected filters.
-                  </p>
-                </div>
-                {filterDistrict && (
-                  <button
-                    onClick={() => setFilterDistrict("")}
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#4f46e5",
-                      background: "#eef2ff",
-                      border: "none",
-                      padding: "0.3rem 0.6rem",
-                      borderRadius: "0.375rem",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Clear District Filter
-                  </button>
                 )}
-              </div>
 
-              {languageLoading && <LoadingSpinner label="Loading language distribution…" />}
-              {languageError && <ErrorMessage message={languageError} onRetry={refetchLanguages} />}
-              {!languageLoading && !languageError && languageData && (
-                <LanguageDistributionChart
-                  languages={languageData.languages}
-                  selectedAgeGroup={filterAgeGroup || undefined}
-                />
-              )}
-            </div>
-          </section>
-        )}
+                {/* /admin/users — User Management */}
+                {currentPath === "/admin/users" && (
+                  <UserManagement currentUser={currentUser} />
+                )}
 
-        {/* ═══ Tab 3: Diagnostics ══════════════════════════════════════════════ */}
-        {activeTab === "diagnostics" && (
-          <section aria-labelledby="heading-diagnostics">
-            <h2
-              id="heading-diagnostics"
-              style={{ margin: "0 0 1rem", fontSize: "1rem", fontWeight: 700, color: "#1f2937" }}
-            >
-              Diagnostics
-            </h2>
+                {/* /admin/submissions — System Submissions */}
+                {currentPath === "/admin/submissions" && (
+                  <AdminSubmissionsView
+                    onSelectSubmission={(subId) => {
+                      setDetailSubmissionId(subId);
+                      navigateTo(`/app/submissions/${subId}`);
+                    }}
+                    onNavigateToReview={() => {
+                      navigateTo("/admin/review");
+                    }}
+                  />
+                )}
 
-            {!selectedCell ? (
-              <EmptyState
-                icon="🧩"
-                message="Click any cell in the Coverage Matrix tab to inspect its error breakdown here."
-              />
-            ) : !selectedCoverageCell ? (
-              <EmptyState
-                icon="⚪"
-                message={`No data available for ${selectedCell.district} · ${selectedCell.gender} · ${selectedCell.age_group}.`}
-              />
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "1rem",
-                }}
-              >
-                {/* Error decomposition */}
-                <div
-                  style={{
-                    background: "#fff",
-                    borderRadius: "0.75rem",
-                    padding: "1.25rem",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <ErrorDecomposition cell={selectedCoverageCell} />
-                </div>
-
-                {/* WER detail card */}
-                <div
-                  style={{
-                    background: "#fff",
-                    borderRadius: "0.75rem",
-                    padding: "1.25rem",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <h3
-                    style={{ margin: "0 0 0.75rem", fontSize: "0.875rem", fontWeight: 700, color: "#374151" }}
-                  >
-                    🔢 Cell Summary
-                  </h3>
-                  <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.35rem 1rem", fontSize: "0.82rem" }}>
-                    {[
-                      ["District", selectedCoverageCell.district],
-                      ["Gender", selectedCoverageCell.gender],
-                      ["Age Group", selectedCoverageCell.age_group],
-                      ["Status", selectedCoverageCell.status.replace("_", " ")],
-                      ["Recordings", selectedCoverageCell.recording_count],
-                      ["Ref. Words", selectedCoverageCell.reference_word_count.toLocaleString()],
-                      ["WER", selectedCoverageCell.wer_pct !== null ? `${selectedCoverageCell.wer_pct.toFixed(1)}%` : "—"],
-                      ["Substitutions", selectedCoverageCell.substitutions],
-                      ["Deletions", selectedCoverageCell.deletions],
-                      ["Insertions", selectedCoverageCell.insertions],
-                    ].map(([term, def]) => (
-                      <>
-                        <dt key={`dt-${term}`} style={{ color: "#6b7280", fontWeight: 600 }}>{term}</dt>
-                        <dd key={`dd-${term}`} style={{ margin: 0, color: "#1f2937", fontWeight: 500 }}>{def}</dd>
-                      </>
-                    ))}
-                  </dl>
-                  {selectedCoverageCell.wer_pct !== null && (
-                    <button
-                      onClick={() => handleWerClick(selectedCoverageCell)}
-                      disabled={mathModalLoading}
-                      style={{
-                        marginTop: "1rem",
-                        padding: "0.45rem 1rem",
-                        background: "#f0f4ff",
-                        border: "1px solid #c7d2fe",
-                        borderRadius: "0.5rem",
-                        color: "#4f46e5",
-                        fontWeight: 600,
-                        fontSize: "0.8rem",
-                        cursor: "pointer",
+                {/* /admin/review — Human Review Queue */}
+                {currentPath === "/admin/review" && (
+                  <section aria-labelledby="heading-review">
+                    <ReviewQueue
+                      onReviewAction={() => {
+                        refetchCommunityStats();
                       }}
-                    >
-                      {mathModalLoading ? "Loading…" : "🔬 View WER Formula"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
+                    />
+                  </section>
+                )}
 
-        {/* ═══ Tab 4: Languages Breakdown ═════════════════════════════════════ */}
-        {activeTab === "languages" && (
-          <section aria-labelledby="heading-languages">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
-              <div>
-                <h2
-                  id="heading-languages"
-                  style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#1f2937" }}
-                >
-                  🗣️ District × Language × Age Matrix
-                </h2>
-                <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "#6b7280" }}>
-                  Explore how recording sample size (k) and WER performance distribute across regional mother tongues and age groups.
-                </p>
-              </div>
-            </div>
+                {/* /admin/coverage — Coverage Matrix */}
+                {currentPath === "/admin/coverage" && (
+                  <section aria-labelledby="heading-coverage">
+                    <div style={{ marginBottom: "1rem" }}>
+                      <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#1F2937", margin: "0 0 0.25rem" }}>
+                        Evidence Coverage Matrix
+                      </h2>
+                      <p style={{ fontSize: "0.82rem", color: "#64748B", margin: 0 }}>
+                        District × Gender × Age Group cohort matrix. <strong>No data ≠ 0% WER.</strong> Click any cell to inspect breakdown.
+                      </p>
+                    </div>
 
-            {/* Language filter controls */}
-            <div style={{ marginBottom: "1rem" }}>
-              <FilterBar
-                districts={districts}
-                selectedDistrict={filterDistrict}
-                selectedGender={filterGender}
-                selectedAgeGroup={filterAgeGroup}
-                onDistrictChange={setFilterDistrict}
-                onGenderChange={setFilterGender}
-                onAgeGroupChange={setFilterAgeGroup}
-                onReset={() => {
-                  setFilterDistrict("");
-                  setFilterGender("");
-                  setFilterAgeGroup("");
-                }}
-              />
-            </div>
+                    <FilterBar
+                      districts={districts}
+                      selectedDistrict={filterDistrict}
+                      selectedGender={filterGender}
+                      selectedAgeGroup={filterAgeGroup}
+                      onDistrictChange={setFilterDistrict}
+                      onGenderChange={setFilterGender}
+                      onAgeGroupChange={setFilterAgeGroup}
+                      onReset={() => {
+                        setFilterDistrict("");
+                        setFilterGender("");
+                        setFilterAgeGroup("");
+                      }}
+                    />
 
-            {/* Split view: Heatmap Table + Distribution Chart */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1.4fr 1fr",
-                gap: "1.25rem",
-                alignItems: "start",
-              }}
-            >
-              {/* Left: Full Heatmap Matrix */}
-              <div
-                style={{
-                  background: "#fff",
-                  borderRadius: "0.75rem",
-                  padding: "1.25rem",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.875rem", fontWeight: 700, color: "#374151" }}>
-                  🗺️ District &amp; Age Group Language Heatmap
-                </h3>
-                {languageMatrixLoading && <LoadingSpinner label="Loading language matrix…" />}
-                {languageMatrixError && <ErrorMessage message={languageMatrixError} />}
-                {!languageMatrixLoading && !languageMatrixError && languageMatrixData && (
-                  <LanguageHeatmap
-                    data={languageMatrixData}
-                    selectedDistrict={filterDistrict || undefined}
-                    selectedAgeGroup={filterAgeGroup || undefined}
-                    onSelectDistrict={(d) => setFilterDistrict(d)}
+                    <div style={{ marginTop: "1rem" }}>
+                      {coverageLoading && <LoadingSpinner label="Loading coverage matrix…" />}
+                      {coverageError && <ErrorMessage message={coverageError} onRetry={refetchCoverage} />}
+
+                      {!coverageLoading && !coverageError && filteredCoverage && (
+                        <div className="bl-card" style={{ padding: "1.25rem" }}>
+                          <CoverageMatrix
+                            data={filteredCoverage}
+                            onCellSelect={handleCellSelect}
+                            onWerClick={handleWerClick}
+                            selectedCell={selectedCell}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedCoverageCell && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
+                        <div className="bl-card">
+                          <ErrorDecomposition cell={selectedCoverageCell} />
+                        </div>
+                        <div className="bl-card">
+                          <h3 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1F2937", margin: "0 0 0.75rem" }}>
+                            📋 Top Collection Priorities
+                          </h3>
+                          {prioritiesData && (
+                            <PriorityPanel
+                              priorities={prioritiesData.priorities.slice(0, 5)}
+                              disclaimer={prioritiesData.disclaimer}
+                              thresholds={prioritiesData.thresholds}
+                              onGiveFeedback={setOverrideTarget}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* /admin/diagnostics — Diagnostics & WER Chart */}
+                {currentPath === "/admin/diagnostics" && (
+                  <section aria-labelledby="heading-diagnostics">
+                    <div style={{ marginBottom: "1rem" }}>
+                      <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#1F2937", margin: "0 0 0.25rem" }}>
+                        District Diagnostics &amp; Recognition Chart
+                      </h2>
+                      <p style={{ fontSize: "0.82rem", color: "#64748B", margin: 0 }}>
+                        Aggregate recognition error rates and error decomposition.
+                      </p>
+                    </div>
+
+                    {overviewLoading && <LoadingSpinner label="Loading district diagnostics…" />}
+                    {overviewError && <ErrorMessage message={overviewError} onRetry={refetchOverview} />}
+
+                    {!overviewLoading && !overviewError && overviewData && (
+                      <>
+                        <div className="bl-card" style={{ marginBottom: "1.25rem" }}>
+                          <WerChart
+                            data={overviewData}
+                            highWerThreshold={thresholds.high_wer_threshold}
+                            onBarClick={handleDistrictClick}
+                          />
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                          {overviewData.map((result: WerResult) => (
+                            <DistrictCard
+                              key={result.district}
+                              result={result}
+                              onClick={() => handleDistrictClick(result.district)}
+                            />
+                          ))}
+                        </div>
+
+                        {selectedCoverageCell && (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                            <div className="bl-card">
+                              <ErrorDecomposition cell={selectedCoverageCell} />
+                            </div>
+                            <div className="bl-card">
+                              <h3 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1F2937", margin: "0 0 0.75rem" }}>
+                                🔢 Selected Cell Summary
+                              </h3>
+                              <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "120px 1fr", gap: "0.35rem 1rem", fontSize: "0.82rem" }}>
+                                <dt style={{ color: "#64748B" }}>District:</dt>
+                                <dd style={{ margin: 0, fontWeight: 600 }}>{selectedCoverageCell.district}</dd>
+                                <dt style={{ color: "#64748B" }}>Gender:</dt>
+                                <dd style={{ margin: 0, fontWeight: 600 }}>{selectedCoverageCell.gender}</dd>
+                                <dt style={{ color: "#64748B" }}>Age Group:</dt>
+                                <dd style={{ margin: 0, fontWeight: 600 }}>{selectedCoverageCell.age_group}</dd>
+                                <dt style={{ color: "#64748B" }}>Status:</dt>
+                                <dd style={{ margin: 0, fontWeight: 600 }}>{selectedCoverageCell.status}</dd>
+                                <dt style={{ color: "#64748B" }}>Recordings:</dt>
+                                <dd style={{ margin: 0, fontWeight: 600 }}>{selectedCoverageCell.recording_count}</dd>
+                                <dt style={{ color: "#64748B" }}>WER %:</dt>
+                                <dd style={{ margin: 0, fontWeight: 700 }}>
+                                  {selectedCoverageCell.wer_pct !== null ? `${selectedCoverageCell.wer_pct.toFixed(1)}%` : "—"}
+                                </dd>
+                              </dl>
+                              {selectedCoverageCell.wer_pct !== null && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleWerClick(selectedCoverageCell)}
+                                  disabled={mathModalLoading}
+                                  style={{
+                                    marginTop: "1rem",
+                                    padding: "0.45rem 0.9rem",
+                                    background: "#EFF6FF",
+                                    border: "1px solid #BFDBFE",
+                                    borderRadius: "6px",
+                                    color: "#2563EB",
+                                    fontWeight: 600,
+                                    fontSize: "0.8rem",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {mathModalLoading ? "Loading…" : "🔬 Inspect Mathematical Formula"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </section>
+                )}
+
+                {/* /admin/action-plan — Action Plan & Priorities */}
+                {currentPath === "/admin/action-plan" && (
+                  <section aria-labelledby="heading-action">
+                    <div style={{ marginBottom: "1rem" }}>
+                      <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#1F2937", margin: "0 0 0.25rem" }}>
+                        Action Plan — Recording Collection Priorities
+                      </h2>
+                      <p style={{ fontSize: "0.82rem", color: "#64748B", margin: 0 }}>
+                        Regional gaps ranked by urgency. Submit community overrides with human sign-off before campaign commissioning.
+                      </p>
+                    </div>
+
+                    {prioritiesLoading && <LoadingSpinner label="Loading priorities…" />}
+                    {prioritiesError && <ErrorMessage message={prioritiesError} onRetry={refetchPriorities} />}
+
+                    {!prioritiesLoading && !prioritiesError && prioritiesData && (
+                      <PriorityPanel
+                        priorities={prioritiesData.priorities}
+                        disclaimer={prioritiesData.disclaimer}
+                        thresholds={prioritiesData.thresholds}
+                        onGiveFeedback={setOverrideTarget}
+                      />
+                    )}
+                  </section>
+                )}
+
+                {/* /admin/governance — Datasets & Benchmark Publication */}
+                {currentPath === "/admin/governance" && (
+                  <section aria-labelledby="heading-governance">
+                    <DatasetGovernance
+                      onDatasetChanged={() => {
+                        refetchCommunityStats();
+                      }}
+                    />
+                  </section>
+                )}
+
+                {/* /admin/settings — System Settings */}
+                {currentPath === "/admin/settings" && (
+                  <AdminSettings
+                    thresholds={thresholds}
+                    onThresholdsChange={setThresholds}
+                    dataTier={dataTier}
+                    onDataTierChange={setDataTier}
                   />
                 )}
-              </div>
-
-              {/* Right: Summary Distribution Charts */}
-              <div
-                style={{
-                  background: "#fff",
-                  borderRadius: "0.75rem",
-                  padding: "1.25rem",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                {languageLoading && <LoadingSpinner label="Loading distribution stats…" />}
-                {languageError && <ErrorMessage message={languageError} onRetry={refetchLanguages} />}
-                {!languageLoading && !languageError && languageData && (
-                  <LanguageDistributionChart
-                    languages={languageData.languages}
-                    selectedAgeGroup={filterAgeGroup || undefined}
-                    title={
-                      filterDistrict
-                        ? `Language Mix in ${filterDistrict}`
-                        : "Overall Languages Ranked"
-                    }
-                  />
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ═══ Tab 4: Action Plan ══════════════════════════════════════════════ */}
-        {activeTab === "action" && (
-          <section aria-labelledby="heading-action">
-            <h2
-              id="heading-action"
-              style={{ margin: "0 0 0.75rem", fontSize: "1rem", fontWeight: 700, color: "#1f2937" }}
-            >
-              Action Plan — Recording Collection Priorities
-            </h2>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", color: "#6b7280", lineHeight: 1.6 }}>
-              Groups ranked by urgency. Click <strong>Review</strong> to submit a community override
-              before any campaign begins. Overrides require human sign-off.
-            </p>
-
-            {prioritiesLoading && <LoadingSpinner label="Loading priorities…" />}
-            {prioritiesError && (
-              <ErrorMessage message={prioritiesError} onRetry={refetchPriorities} />
+              </>
             )}
-            {!prioritiesLoading && !prioritiesError && prioritiesData && (
-              <PriorityPanel
-                priorities={prioritiesData.priorities}
-                disclaimer={prioritiesData.disclaimer}
-                thresholds={prioritiesData.thresholds}
-                onGiveFeedback={setOverrideTarget}
-              />
-            )}
-          </section>
+          </>
         )}
       </main>
 
-      {/* ── Math Modal ──────────────────────────────────────────────────────── */}
+      {/* ── Math Integrity Modal ────────────────────────────────────────────── */}
       {mathModalCell && (
         <MathModal cell={mathModalCell} onClose={() => setMathModalCell(null)} />
       )}
@@ -869,7 +908,24 @@ export default function App() {
           onClose={() => setOverrideTarget(null)}
           onSubmitSuccess={() => {
             refetchPriorities();
-            refetchSummary();
+            refetchOverview();
+          }}
+        />
+      )}
+
+      {/* ── Standalone Auth Modal Trigger ───────────────────────────────────── */}
+      {authModalMode && (
+        <AuthModal
+          initialMode={authModalMode}
+          onClose={() => setAuthModalMode(null)}
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            setAuthModalMode(null);
+            if (user.role === "ADMIN" || user.role === "REVIEWER") {
+              navigateTo("/admin");
+            } else {
+              navigateTo("/app");
+            }
           }}
         />
       )}

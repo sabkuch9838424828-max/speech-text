@@ -65,7 +65,8 @@ export function ThresholdBar({ value, onChange }: ThresholdBarProps) {
   return (
     <div
       style={{
-        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+        background: "#FFFFFF",
+        borderBottom: "1px solid #E2E8F0",
         padding: "0.75rem 1.5rem",
         display: "flex",
         gap: "2rem",
@@ -75,15 +76,18 @@ export function ThresholdBar({ value, onChange }: ThresholdBarProps) {
     >
       <span
         style={{
-          color: "#e0e7ff",
+          color: "#1F2937",
           fontSize: "0.75rem",
           fontWeight: 700,
           textTransform: "uppercase",
-          letterSpacing: "0.07em",
+          letterSpacing: "0.06em",
           whiteSpace: "nowrap",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.4rem",
         }}
       >
-        ⚙️ Policy Thresholds
+        <span>⚙️</span> Policy Thresholds
       </span>
       {SLIDERS.map((s) => {
         const v = local[s.key];
@@ -96,8 +100,9 @@ export function ThresholdBar({ value, onChange }: ThresholdBarProps) {
             <label
               htmlFor={`slider-${s.key}`}
               style={{
-                color: "#c7d2fe",
-                fontSize: "0.75rem",
+                color: "#475569",
+                fontSize: "0.78rem",
+                fontWeight: 600,
                 whiteSpace: "nowrap",
                 minWidth: "70px",
               }}
@@ -115,25 +120,25 @@ export function ThresholdBar({ value, onChange }: ThresholdBarProps) {
               aria-label={`${s.label} threshold: ${s.format(v)}`}
               style={{
                 flex: 1,
-                accentColor: "#a5b4fc",
+                accentColor: "#2563EB",
                 cursor: "pointer",
               }}
             />
             <span
               style={{
-                color: "#fff",
+                color: "#1E40AF",
                 fontSize: "0.82rem",
                 fontWeight: 700,
                 minWidth: "36px",
                 textAlign: "right",
-                background: "rgba(255,255,255,0.15)",
-                borderRadius: "0.3rem",
-                padding: "0.1rem 0.35rem",
+                background: "#EFF6FF",
+                border: "1px solid #BFDBFE",
+                borderRadius: "0.35rem",
+                padding: "0.1rem 0.45rem",
               }}
             >
               {s.format(v)}
             </span>
-            {/* invisible usage of pct to avoid unused-var lint */}
             <span style={{ display: "none" }}>{pct}</span>
           </div>
         );

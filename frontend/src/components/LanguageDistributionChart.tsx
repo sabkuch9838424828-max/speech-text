@@ -37,7 +37,7 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
 
   if (languages.length === 0) {
     return (
-      <div style={{ padding: "1.5rem", textAlign: "center", color: "#9ca3af", fontSize: "0.85rem" }}>
+      <div style={{ padding: "1.5rem", textAlign: "center", color: "#91a7bf", fontSize: "0.85rem" }}>
         No language data for this selection.
       </div>
     );
@@ -74,7 +74,7 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
     <div>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
-        <h3 style={{ margin: 0, fontSize: "0.875rem", fontWeight: 700, color: "#374151" }}>
+        <h3 style={{ margin: 0, fontSize: "0.875rem", fontWeight: 700, color: "#edf5ff" }}>
           🗣️ {title ?? "Language Distribution"}
         </h3>
         <div style={{ display: "flex", gap: "0.4rem" }}>
@@ -88,9 +88,9 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
                 fontSize: "0.72rem",
                 fontWeight: 600,
                 borderRadius: "9999px",
-                border: `1px solid ${view === v ? "#6366f1" : "#d1d5db"}`,
-                background: view === v ? "#6366f1" : "#fff",
-                color: view === v ? "#fff" : "#6b7280",
+                border: `1px solid ${view === v ? "#58d9ff" : "#34485d"}`,
+                background: view === v ? "linear-gradient(135deg, #167fa3, #2455a8)" : "#111a26",
+                color: view === v ? "#ffffff" : "#c5d7ea",
                 cursor: "pointer",
               }}
             >
@@ -110,11 +110,11 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
                 layout="vertical"
                 margin={{ left: 8, right: 40, top: 4, bottom: 4 }}
               >
-                <XAxis type="number" tick={{ fontSize: 10 }} />
-                <YAxis type="category" dataKey="language" tick={{ fontSize: 11 }} width={90} />
-                <Tooltip formatter={(v) => [`${v} recordings`, "Count"]} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: "#c4d5e7" }} />
+                <YAxis type="category" dataKey="language" tick={{ fontSize: 11, fill: "#d7e5f4" }} width={90} />
+                <Tooltip contentStyle={{ background: "#101a26", border: "1px solid #38516a", borderRadius: 10, color: "#f1f7ff", boxShadow: "0 12px 30px rgba(0,0,0,.35)" }} labelStyle={{ color: "#c7ff5e", fontWeight: 700 }} itemStyle={{ color: "#e8f2ff" }} formatter={(v) => [`${v} recordings`, "Count"]} />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                  <LabelList dataKey="count" position="right" style={{ fontSize: 10, fill: "#6b7280" }} />
+                  <LabelList dataKey="count" position="right" style={{ fontSize: 10, fill: "#e7f0fa", fontWeight: 700 }} />
                   {countData.map((d) => (
                     <Cell key={d.language} fill={d.color} />
                   ))}
@@ -142,7 +142,7 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
                 }}
               >
                 {l.language}
-                <span style={{ fontWeight: 400, color: "#6b7280" }}>{l.recording_count}</span>
+                <span style={{ fontWeight: 400, color: "#b7c8dc" }}>{l.recording_count}</span>
                 {l.wer_pct !== null && (
                   <span style={{ fontWeight: 700 }}>{l.wer_pct.toFixed(0)}%</span>
                 )}
@@ -155,10 +155,10 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
         <div style={{ height: Math.max(150, languages.length * 30 + 60) }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={werData} margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-              <XAxis dataKey="language" tick={{ fontSize: 10 }} />
-              <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} domain={[0, "auto"]} />
-              <Tooltip formatter={(v) => [`${(v as number).toFixed(1)}%`, "WER"]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2b3b4c" vertical={false} />
+              <XAxis dataKey="language" tick={{ fontSize: 10, fill: "#c4d5e7" }} />
+              <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "#c4d5e7" }} domain={[0, "auto"]} />
+              <Tooltip contentStyle={{ background: "#101a26", border: "1px solid #38516a", borderRadius: 10, color: "#f1f7ff", boxShadow: "0 12px 30px rgba(0,0,0,.35)" }} labelStyle={{ color: "#c7ff5e", fontWeight: 700 }} itemStyle={{ color: "#e8f2ff" }} formatter={(v) => [`${(v as number).toFixed(1)}%`, "WER"]} />
               <Legend wrapperStyle={{ fontSize: "0.72rem" }} />
               {AGE_GROUPS.map((ag) => (
                 <Bar
@@ -181,7 +181,7 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
         style={{
           marginTop: "0.75rem",
           fontSize: "0.72rem",
-          color: "#6366f1",
+          color: "#58d9ff",
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -196,31 +196,31 @@ export function LanguageDistributionChart({ languages, selectedAgeGroup, title }
         <div style={{ overflowX: "auto", marginTop: "0.5rem" }}>
           <table style={{ borderCollapse: "collapse", fontSize: "0.72rem", width: "100%" }}>
             <thead>
-              <tr style={{ background: "#f9fafb" }}>
-                <th style={{ padding: "0.4rem 0.6rem", textAlign: "left", color: "#6b7280", fontWeight: 600, borderBottom: "1px solid #e5e7eb" }}>Language</th>
+              <tr style={{ background: "#121b27" }}>
+                <th style={{ padding: "0.4rem 0.6rem", textAlign: "left", color: "#b7c8dc", fontWeight: 600, borderBottom: "1px solid #29394a" }}>Language</th>
                 {AGE_GROUPS.map((ag) => (
-                  <th key={ag} colSpan={2} style={{ padding: "0.4rem 0.6rem", textAlign: "center", color: AGE_COLORS[ag], fontWeight: 700, borderBottom: "1px solid #e5e7eb" }}>
+                  <th key={ag} colSpan={2} style={{ padding: "0.4rem 0.6rem", textAlign: "center", color: AGE_COLORS[ag], fontWeight: 700, borderBottom: "1px solid #29394a" }}>
                     {ag}
                   </th>
                 ))}
               </tr>
-              <tr style={{ background: "#f9fafb" }}>
-                <th style={{ borderBottom: "2px solid #e5e7eb" }} />
+              <tr style={{ background: "#121b27" }}>
+                <th style={{ borderBottom: "2px solid #34495d" }} />
                 {AGE_GROUPS.flatMap((ag) => [
-                  <th key={`${ag}-k`} style={{ padding: "0.25rem 0.4rem", textAlign: "center", color: "#9ca3af", fontWeight: 500, borderBottom: "2px solid #e5e7eb", fontSize: "0.65rem" }}>k</th>,
-                  <th key={`${ag}-w`} style={{ padding: "0.25rem 0.4rem", textAlign: "center", color: "#9ca3af", fontWeight: 500, borderBottom: "2px solid #e5e7eb", fontSize: "0.65rem" }}>WER</th>,
+                  <th key={`${ag}-k`} style={{ padding: "0.25rem 0.4rem", textAlign: "center", color: "#91a7bf", fontWeight: 500, borderBottom: "2px solid #34495d", fontSize: "0.65rem" }}>k</th>,
+                  <th key={`${ag}-w`} style={{ padding: "0.25rem 0.4rem", textAlign: "center", color: "#91a7bf", fontWeight: 500, borderBottom: "2px solid #34495d", fontSize: "0.65rem" }}>WER</th>,
                 ])}
               </tr>
             </thead>
             <tbody>
               {ageTableData.map(({ language, ages }, ri) => (
-                <tr key={language} style={{ background: ri % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                  <td style={{ padding: "0.35rem 0.6rem", fontWeight: 600, color: "#374151", borderBottom: "1px solid #f3f4f6" }}>{language}</td>
+                <tr key={language} style={{ background: ri % 2 === 0 ? "#0f1722" : "#121b27" }}>
+                  <td style={{ padding: "0.35rem 0.6rem", fontWeight: 600, color: "#edf5ff", borderBottom: "1px solid #263444" }}>{language}</td>
                   {ages.flatMap(({ ag, count, wer }) => [
-                    <td key={`${ag}-k`} style={{ padding: "0.35rem 0.4rem", textAlign: "center", color: count === 0 ? "#d1d5db" : "#374151", borderBottom: "1px solid #f3f4f6" }}>
+                    <td key={`${ag}-k`} style={{ padding: "0.35rem 0.4rem", textAlign: "center", color: count === 0 ? "#71869d" : "#e4eef9", borderBottom: "1px solid #263444" }}>
                       {count === 0 ? "—" : count}
                     </td>,
-                    <td key={`${ag}-w`} style={{ padding: "0.35rem 0.4rem", textAlign: "center", color: wer === null ? "#d1d5db" : wer >= 25 ? "#e11d48" : "#059669", fontWeight: wer !== null ? 700 : 400, borderBottom: "1px solid #f3f4f6" }}>
+                    <td key={`${ag}-w`} style={{ padding: "0.35rem 0.4rem", textAlign: "center", color: wer === null ? "#71869d" : wer >= 25 ? "#ff6b8a" : "#5ce1a5", fontWeight: wer !== null ? 700 : 400, borderBottom: "1px solid #263444" }}>
                       {wer === null ? "—" : `${wer.toFixed(1)}%`}
                     </td>,
                   ])}

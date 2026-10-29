@@ -8,7 +8,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  Legend,
 } from "recharts";
 
 interface ErrorDecompositionProps {
@@ -81,7 +80,7 @@ export function ErrorDecomposition({ cell }: ErrorDecompositionProps) {
             <XAxis type="number" domain={[0, total]} tick={{ fontSize: 10 }} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fontWeight: 600 }} width={20} />
             <Tooltip
-              formatter={(value, name, props) => [
+              formatter={(value, _name, props) => [
                 `${value} (${props.payload.pct}%)`,
                 props.payload.label,
               ]}

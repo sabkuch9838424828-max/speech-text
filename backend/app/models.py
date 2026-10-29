@@ -114,3 +114,111 @@ class FeedbackRequest(BaseModel):
 class FeedbackResponse(BaseModel):
     accepted: bool
     message: str
+
+
+# ── BhashaLens 2.0 Models ───────────────────────────────────────────────────
+
+class SubmissionCreateRequest(BaseModel):
+    contribution_mode: str = Field(..., description="'guided' or 'natural'")
+    language: str
+    dialect: Optional[str] = None
+    speech_context: Optional[str] = None
+    prompt_id: Optional[str] = None
+    reference_text: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    gender: Optional[str] = None
+    age_group: Optional[str] = None
+    consent_given: bool = True
+    age_verified: bool = True
+    consent_policy_version: str = "v2.0-community"
+    audio_base64: Optional[str] = None
+    audio_filename: Optional[str] = "recording.wav"
+    content_type: Optional[str] = "audio/wav"
+
+
+class ReviewActionRequest(BaseModel):
+    submission_id: str
+    reviewer_name: str
+    reviewer_role: str
+    action: str = Field(..., description="'APPROVE', 'REJECT', 'CORRECT', 'REQUEST_REVIEW', 'EXCLUDE'")
+    corrected_transcript: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class WithdrawRequest(BaseModel):
+    submission_id: str
+    deletion_token: str
+    reason: Optional[str] = "User requested withdrawal"
+
+
+class PublishDatasetRequest(BaseModel):
+    version: str
+    title: str
+    description: str
+    published_by: str
+    set_as_active_benchmark: bool = False
+
+
+class EvaluateModelRequest(BaseModel):
+    dataset_id: str
+    candidate_model_name: str
+    candidate_model_version: str
+    split_to_evaluate: str = "test"
+    evaluated_by: str = "Evaluation Lead"
+    baseline_wer: Optional[float] = 22.4
+
+
+class PromoteModelRequest(BaseModel):
+    evaluation_id: str
+    promoted_by: str
+    reviewer_role: str = "admin"
+
+
+# ── Auth & User Management Models ───────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    email: str = Field(..., min_length=5, max_length=150)
+    password: str = Field(..., min_length=8, max_length=128)
+    role: Optional[str] = "USER"
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    role: str
+    is_active: bool
+    created_at: str
+    last_login_at: Optional[str] = None
+
+
+class AuthResponse(BaseModel):
+    user: UserResponse
+    token: str
+    message: str = "Authentication successful"
+
+
+class UpdateUserStatusRequest(BaseModel):
+    is_active: bool
+
+
+class UpdateUserRoleRequest(BaseModel):
+    role: str
+
+
+class UserStatsResponse(BaseModel):
+    total_submissions: int
+    pending_review: int
+    approved: int
+    needs_correction: int
+    withdrawn: int
+
+
