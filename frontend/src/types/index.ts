@@ -61,14 +61,17 @@ export interface CoverageMatrix {
 
 export interface SummaryStats {
   total_districts: number;
-  total_cells: number;
+  total_cohort_cells: number;
   validated_cohorts: number;
-  validated_cohorts_pct: number;
+  validated_pct: number;
   high_wer_alerts: number;
-  high_wer_alerts_pct: number;
+  high_wer_pct: number;
   blindspots: number;
   blindspots_pct: number;
+  insufficient_evidence: number;
+  cannot_calculate: number;
   field_deficit_recordings: number;
+  recommended_target_per_cell: number;
 }
 
 export interface CollectionPriority {

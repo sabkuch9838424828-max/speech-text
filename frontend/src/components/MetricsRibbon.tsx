@@ -18,7 +18,7 @@ const CARDS: StatCard[] = [
   {
     label: "Total Districts",
     getValue: (s) => String(s.total_districts),
-    getSub: (_) => `${_.total_cells} cohort cells`,
+    getSub: (s) => `${s.total_cohort_cells} cohort cells`,
     accent: "#3b82f6",
     bg: "#eff6ff",
     icon: "🏛️",
@@ -26,7 +26,7 @@ const CARDS: StatCard[] = [
   {
     label: "Validated Cohorts",
     getValue: (s) => String(s.validated_cohorts),
-    getSub: (s) => `${s.validated_cohorts_pct.toFixed(0)}% of cells`,
+    getSub: (s) => `${s.validated_pct.toFixed(0)}% of cells`,
     accent: "#059669",
     bg: "#ecfdf5",
     icon: "✅",
@@ -34,7 +34,7 @@ const CARDS: StatCard[] = [
   {
     label: "High WER Alerts",
     getValue: (s) => String(s.high_wer_alerts),
-    getSub: (s) => `${s.high_wer_alerts_pct.toFixed(0)}% of cells`,
+    getSub: (s) => `${s.high_wer_pct.toFixed(0)}% of cells`,
     accent: "#e11d48",
     bg: "#fff1f2",
     icon: "🚨",
@@ -50,7 +50,7 @@ const CARDS: StatCard[] = [
   {
     label: "Field Deficit",
     getValue: (s) => `${s.field_deficit_recordings}`,
-    getSub: (_) => "recordings needed",
+    getSub: (_s) => "recordings needed",
     accent: "#d97706",
     bg: "#fffbeb",
     icon: "📋",
