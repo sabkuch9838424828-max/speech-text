@@ -132,3 +132,54 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   min_reference_words: 20,
   high_wer_threshold: 25,
 };
+
+// ── Language distribution types ───────────────────────────────────────────────
+
+export interface LanguageAgeBreakdown {
+  recording_count: number;
+  wer_pct: number | null;
+  reference_word_count: number;
+  substitutions: number;
+  deletions: number;
+  insertions: number;
+}
+
+export interface LanguageStat {
+  language: string;
+  recording_count: number;
+  reference_word_count: number;
+  substitutions: number;
+  deletions: number;
+  insertions: number;
+  wer_pct: number | null;
+  breakdown_by_age: Record<string, LanguageAgeBreakdown>;
+  breakdown_by_district: Record<string, { recording_count: number; wer_pct: number | null }>;
+}
+
+export interface LanguageDistributionResponse {
+  languages: LanguageStat[];
+  total_recordings: number;
+  unique_languages: number;
+  filters_applied: { district: string | null; gender: string | null; age_group: string | null };
+  data_label: string;
+}
+
+export interface LanguageMatrixCell {
+  district: string;
+  language: string;
+  age_group: string;
+  recording_count: number;
+  wer_pct: number | null;
+  reference_word_count: number;
+  substitutions: number;
+  deletions: number;
+  insertions: number;
+}
+
+export interface LanguageMatrixResponse {
+  cells: LanguageMatrixCell[];
+  districts: string[];
+  languages: string[];
+  age_groups: string[];
+  data_label: string;
+}

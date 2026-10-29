@@ -1,4 +1,4 @@
-// Typed API client for BhashaLens — v0.2
+// Typed API client for BhashaLens — v0.3
 import type {
   WerResult,
   WerCellDetail,
@@ -8,6 +8,8 @@ import type {
   OverrideRequest,
   OverrideResponse,
   Thresholds,
+  LanguageDistributionResponse,
+  LanguageMatrixResponse,
 } from "../types";
 
 const BASE_URL = "http://localhost:8000/api";
@@ -94,6 +96,20 @@ export const api = {
 
   submitOverride: (payload: OverrideRequest) =>
     post<OverrideResponse>("/overrides", payload),
+
+  /** Language distribution — filtered by district / gender / age_group */
+  languageDistribution: (params?: {
+    district?: string;
+    gender?: string;
+    age_group?: string;
+  }) =>
+    get<LanguageDistributionResponse>(
+      "/language/distribution",
+      params as Record<string, string | undefined>
+    ),
+
+  /** Full district × language × age matrix */
+  languageMatrix: () => get<LanguageMatrixResponse>("/language/matrix"),
 
   /** Returns a URL string for CSV download (use window.open or anchor href) */
   manifestUrl: (thresholds?: Thresholds): string => {

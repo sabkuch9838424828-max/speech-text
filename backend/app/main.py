@@ -18,6 +18,7 @@ from app.aggregator import (
 )
 from app.coverage import build_coverage_matrix, get_summary_stats
 from app.priorities import get_priorities
+from app.language import get_language_distribution, get_district_language_matrix
 from app.models import (
     WerResponse, WerCellDetail,
     CoverageMatrix, CoverageCell,
@@ -321,3 +322,34 @@ def submit_feedback(body: FeedbackRequest):
 @app.get("/api/feedback")
 def list_feedback():
     return {"feedback": _feedback_store, "count": len(_feedback_store)}
+
+
+
+# ── language distribution ─────────────────────────────────────────────────────
+
+@app.get("/api/language/distribution")
+def language_distribution(
+    district: Optional[str] = Query(None),
+    gender: Optional[str] = Query(None),
+    age_group: Optional[str] = Query(None),
+):
+    """
+    Language distribution filtered by district / gender / age_group.
+    Returns per-language recording counts, WER, and age/district breakdowns.
+    ⚠ ILLUSTRATIVE DEMO DATA.
+    """
+    return get_language_distribution(
+        district=district or None,
+        gender=gender or None,
+        age_group=age_group or None,
+    )
+
+
+@app.get("/api/language/matrix")
+def language_matrix():
+    """
+    Full district × language × age_group matrix.
+    Used to render the language heatmap.
+    ⚠ ILLUSTRATIVE DEMO DATA.
+    """
+    return get_district_language_matrix()

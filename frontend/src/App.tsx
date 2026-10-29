@@ -11,6 +11,8 @@ import { ErrorDecomposition } from "./components/ErrorDecomposition";
 import { PriorityPanel } from "./components/PriorityPanel";
 import { MathModal } from "./components/MathModal";
 import { OverrideDrawer } from "./components/OverrideDrawer";
+import { LanguageDistributionChart } from "./components/LanguageDistributionChart";
+import { LanguageHeatmap } from "./components/LanguageHeatmap";
 import type {
   WerResult,
   WerCellDetail,
@@ -117,11 +119,12 @@ function EmptyState({ message, icon }: { message: string; icon?: string }) {
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
-type TabId = "overview" | "coverage" | "diagnostics" | "action";
+type TabId = "overview" | "coverage" | "diagnostics" | "languages" | "action";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "🏛️ District Overview" },
   { id: "coverage", label: "🧩 Coverage Matrix" },
+  { id: "languages", label: "🗣️ Language Breakdown" },
   { id: "diagnostics", label: "🔬 Diagnostics" },
   { id: "action", label: "📋 Action Plan" },
 ];
@@ -193,6 +196,32 @@ export default function App() {
     useCallback(() => api.priorities(thresholds), [thresholds]),
     [thresholds]
   );
+
+  // Language distribution (scoped to current filters)
+  const {
+    data: languageData,
+    loading: languageLoading,
+    error: languageError,
+    refetch: refetchLanguages,
+  } = useAsync(
+    useCallback(
+      () =>
+        api.languageDistribution({
+          district: filterDistrict || undefined,
+          gender: filterGender || undefined,
+          age_group: filterAgeGroup || undefined,
+        }),
+      [filterDistrict, filterGender, filterAgeGroup]
+    ),
+    [filterDistrict, filterGender, filterAgeGroup]
+  );
+
+  // Full language matrix (district × language × age)
+  const {
+    data: languageMatrixData,
+    loading: languageMatrixLoading,
+    error: languageMatrixError,
+  } = useAsync(useCallback(() => api.languageMatrix(), []), []);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -553,6 +582,54 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* Language breakdown for currently filtered district / selection */}
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: "0.75rem",
+                padding: "1.25rem",
+                border: "1px solid #e5e7eb",
+                marginTop: "1.25rem",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#1f2937" }}>
+                    🗣️ Language Distribution in {filterDistrict ? filterDistrict : "All Districts"}
+                  </h3>
+                  <p style={{ margin: "0.15rem 0 0", fontSize: "0.75rem", color: "#6b7280" }}>
+                    Speech recording representation by language and age group for selected filters.
+                  </p>
+                </div>
+                {filterDistrict && (
+                  <button
+                    onClick={() => setFilterDistrict("")}
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#4f46e5",
+                      background: "#eef2ff",
+                      border: "none",
+                      padding: "0.3rem 0.6rem",
+                      borderRadius: "0.375rem",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Clear District Filter
+                  </button>
+                )}
+              </div>
+
+              {languageLoading && <LoadingSpinner label="Loading language distribution…" />}
+              {languageError && <ErrorMessage message={languageError} onRetry={refetchLanguages} />}
+              {!languageLoading && !languageError && languageData && (
+                <LanguageDistributionChart
+                  languages={languageData.languages}
+                  selectedAgeGroup={filterAgeGroup || undefined}
+                />
+              )}
+            </div>
           </section>
         )}
 
@@ -651,6 +728,101 @@ export default function App() {
                 </div>
               </div>
             )}
+          </section>
+        )}
+
+        {/* ═══ Tab 4: Languages Breakdown ═════════════════════════════════════ */}
+        {activeTab === "languages" && (
+          <section aria-labelledby="heading-languages">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div>
+                <h2
+                  id="heading-languages"
+                  style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#1f2937" }}
+                >
+                  🗣️ District × Language × Age Matrix
+                </h2>
+                <p style={{ margin: "0.2rem 0 0", fontSize: "0.8rem", color: "#6b7280" }}>
+                  Explore how recording sample size (k) and WER performance distribute across regional mother tongues and age groups.
+                </p>
+              </div>
+            </div>
+
+            {/* Language filter controls */}
+            <div style={{ marginBottom: "1rem" }}>
+              <FilterBar
+                districts={districts}
+                selectedDistrict={filterDistrict}
+                selectedGender={filterGender}
+                selectedAgeGroup={filterAgeGroup}
+                onDistrictChange={setFilterDistrict}
+                onGenderChange={setFilterGender}
+                onAgeGroupChange={setFilterAgeGroup}
+                onReset={() => {
+                  setFilterDistrict("");
+                  setFilterGender("");
+                  setFilterAgeGroup("");
+                }}
+              />
+            </div>
+
+            {/* Split view: Heatmap Table + Distribution Chart */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.4fr 1fr",
+                gap: "1.25rem",
+                alignItems: "start",
+              }}
+            >
+              {/* Left: Full Heatmap Matrix */}
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: "0.75rem",
+                  padding: "1.25rem",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.875rem", fontWeight: 700, color: "#374151" }}>
+                  🗺️ District &amp; Age Group Language Heatmap
+                </h3>
+                {languageMatrixLoading && <LoadingSpinner label="Loading language matrix…" />}
+                {languageMatrixError && <ErrorMessage message={languageMatrixError} />}
+                {!languageMatrixLoading && !languageMatrixError && languageMatrixData && (
+                  <LanguageHeatmap
+                    data={languageMatrixData}
+                    selectedDistrict={filterDistrict || undefined}
+                    selectedAgeGroup={filterAgeGroup || undefined}
+                    onSelectDistrict={(d) => setFilterDistrict(d)}
+                  />
+                )}
+              </div>
+
+              {/* Right: Summary Distribution Charts */}
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: "0.75rem",
+                  padding: "1.25rem",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                {languageLoading && <LoadingSpinner label="Loading distribution stats…" />}
+                {languageError && <ErrorMessage message={languageError} onRetry={refetchLanguages} />}
+                {!languageLoading && !languageError && languageData && (
+                  <LanguageDistributionChart
+                    languages={languageData.languages}
+                    selectedAgeGroup={filterAgeGroup || undefined}
+                    title={
+                      filterDistrict
+                        ? `Language Mix in ${filterDistrict}`
+                        : "Overall Languages Ranked"
+                    }
+                  />
+                )}
+              </div>
+            </div>
           </section>
         )}
 
