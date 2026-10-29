@@ -1,17 +1,15 @@
 """
 Aggregates recordings into WerResult objects using the correct
-summed-edit-counts formula. Applies filters and threshold classification.
+summed-edit-counts formula. Also provides naive-average for comparison.
 """
-
 from __future__ import annotations
 from typing import Optional
 from app.wer import EditCounts, WerResult, aggregate_wer
 from app.data_loader import get_recordings, get_districts, ORDERED_AGE_GROUPS
 
-# Default thresholds — exposed to API callers
-DEFAULT_MIN_RECORDINGS = 5
+DEFAULT_MIN_RECORDINGS    = 5
 DEFAULT_MIN_REFERENCE_WORDS = 20
-DEFAULT_HIGH_WER_THRESHOLD = 30.0
+DEFAULT_HIGH_WER_THRESHOLD  = 25.0
 
 
 def _to_edit_counts(rec: dict) -> EditCounts:
@@ -40,6 +38,18 @@ def filter_recordings(
     return result
 
 
+def compute_naive_average_wer(records: list[EditCounts]) -> Optional[float]:
+    """
+    Naive (INCORRECT) average of per-record WERs.
+    Returned alongside true aggregate so the UI can display the contrast.
+    """
+    valid = [r for r in records if r.reference_word_count > 0]
+    if not valid:
+        return None
+    per_wers = [r.total_edits() / r.reference_word_count * 100 for r in valid]
+    return round(sum(per_wers) / len(per_wers), 2)
+
+
 def get_wer_for_group(
     *,
     district: Optional[str] = None,
@@ -60,14 +70,34 @@ def get_wer_for_group(
     )
 
 
+def get_wer_with_naive(
+    *,
+    district: str,
+    gender: Optional[str] = None,
+    age_group: Optional[str] = None,
+    min_recordings: int = DEFAULT_MIN_RECORDINGS,
+    min_reference_words: int = DEFAULT_MIN_REFERENCE_WORDS,
+    high_wer_threshold: float = DEFAULT_HIGH_WER_THRESHOLD,
+) -> tuple[WerResult, Optional[float]]:
+    """Returns (WerResult, naive_average_wer_pct)."""
+    recordings = get_recordings()
+    filtered = filter_recordings(recordings, district=district, gender=gender, age_group=age_group)
+    counts = [_to_edit_counts(r) for r in filtered]
+    result = aggregate_wer(
+        counts,
+        min_recordings=min_recordings,
+        min_reference_words=min_reference_words,
+        high_wer_threshold=high_wer_threshold,
+    )
+    naive = compute_naive_average_wer(counts)
+    return result, naive
+
+
 def get_overview(
     min_recordings: int = DEFAULT_MIN_RECORDINGS,
     min_reference_words: int = DEFAULT_MIN_REFERENCE_WORDS,
     high_wer_threshold: float = DEFAULT_HIGH_WER_THRESHOLD,
 ) -> list[dict]:
-    """
-    Returns one WerResult per district (aggregated across all gender/age).
-    """
     results = []
     for district in get_districts():
         wer_result = get_wer_for_group(

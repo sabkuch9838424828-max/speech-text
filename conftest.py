@@ -1,6 +1,6 @@
 """
 Root-level conftest.py so pytest can be run from the repo root
-(c:\Users\ASUS\Desktop\flux1) and still find the backend app package.
+and still find the backend app package.
 """
 import sys
 import os

@@ -1,33 +1,32 @@
 import type { WerStatus } from "../types";
-import { STATUS_LABELS, STATUS_COLORS, STATUS_BG } from "../utils/wer";
+import { STATUS_STYLE } from "../utils/wer";
 
 interface StatusBadgeProps {
   status: WerStatus;
-  size?: "sm" | "md";
+  compact?: boolean;
 }
 
-export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
-  const padding = size === "sm" ? "0.15rem 0.5rem" : "0.25rem 0.75rem";
-  const fontSize = size === "sm" ? "0.7rem" : "0.78rem";
-
+export function StatusBadge({ status, compact }: StatusBadgeProps) {
+  const s = STATUS_STYLE[status];
   return (
     <span
-      role="status"
-      aria-label={`Status: ${STATUS_LABELS[status]}`}
+      aria-label={s.label}
       style={{
-        display: "inline-block",
-        padding,
-        fontSize,
-        fontWeight: 600,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.25rem",
+        background: s.bg,
+        color: s.text,
+        border: `1px solid ${s.border}`,
         borderRadius: "9999px",
-        backgroundColor: STATUS_BG[status],
-        color: STATUS_COLORS[status],
-        border: `1px solid ${STATUS_COLORS[status]}40`,
-        letterSpacing: "0.02em",
+        padding: compact ? "0.1rem 0.45rem" : "0.2rem 0.6rem",
+        fontSize: compact ? "0.68rem" : "0.75rem",
+        fontWeight: 700,
         whiteSpace: "nowrap",
       }}
     >
-      {STATUS_LABELS[status]}
+      <span aria-hidden="true">{s.emoji}</span>
+      {!compact && s.label}
     </span>
   );
 }

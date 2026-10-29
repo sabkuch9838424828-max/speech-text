@@ -1,4 +1,4 @@
-// BhashaLens type definitions
+// BhashaLens type definitions — v0.2
 // ⚠ All data is ILLUSTRATIVE DEMO DATA
 
 export type WerStatus =
@@ -25,12 +25,31 @@ export interface WerResult {
   threshold_min_words: number;
 }
 
+export interface WerCellDetail {
+  district: string;
+  gender: string;
+  age_group: string;
+  status: WerStatus;
+  wer_pct: number | null;
+  naive_average_wer_pct: number | null;
+  recording_count: number;
+  reference_word_count: number;
+  substitutions: number;
+  deletions: number;
+  insertions: number;
+}
+
 export interface CoverageCell {
   district: string;
   gender: string;
   age_group: string;
-  status: CoverageStatus;
+  status: WerStatus;
   recording_count: number;
+  reference_word_count: number;
+  wer_pct: number | null;
+  substitutions: number;
+  deletions: number;
+  insertions: number;
 }
 
 export interface CoverageMatrix {
@@ -38,6 +57,18 @@ export interface CoverageMatrix {
   districts: string[];
   genders: string[];
   age_groups: string[];
+}
+
+export interface SummaryStats {
+  total_districts: number;
+  total_cells: number;
+  validated_cohorts: number;
+  validated_cohorts_pct: number;
+  high_wer_alerts: number;
+  high_wer_alerts_pct: number;
+  blindspots: number;
+  blindspots_pct: number;
+  field_deficit_recordings: number;
 }
 
 export interface CollectionPriority {
@@ -49,6 +80,7 @@ export interface CollectionPriority {
   gap_type: "missing" | "insufficient" | "high_wer";
   recording_count: number;
   recommended_target: number;
+  community_override?: OverrideData | null;
 }
 
 export interface PrioritiesResponse {
@@ -61,16 +93,29 @@ export interface PrioritiesResponse {
   disclaimer: string;
 }
 
-export interface FeedbackPayload {
+export interface OverrideData {
   cell_id: string;
-  comment: string;
-  reviewer: string;
-  agreed_with_priority?: boolean;
+  custom_target: number | null;
+  qualitative_tag: string;
+  notes: string;
+  reviewer_name: string;
+  reviewer_role: string;
+  submitted_at: string;
 }
 
-export interface FeedbackResponse {
+export interface OverrideRequest {
+  cell_id: string;
+  custom_target?: number;
+  qualitative_tag: string;
+  notes: string;
+  reviewer_name: string;
+  reviewer_role: string;
+}
+
+export interface OverrideResponse {
   accepted: boolean;
   message: string;
+  cell_id: string;
 }
 
 export interface Thresholds {
@@ -82,5 +127,5 @@ export interface Thresholds {
 export const DEFAULT_THRESHOLDS: Thresholds = {
   min_recordings: 5,
   min_reference_words: 20,
-  high_wer_threshold: 30,
+  high_wer_threshold: 25,
 };

@@ -1,15 +1,21 @@
-// Typed API client for BhashaLens backend
+// Typed API client for BhashaLens — v0.2
 import type {
   WerResult,
+  WerCellDetail,
   CoverageMatrix,
+  SummaryStats,
   PrioritiesResponse,
-  FeedbackPayload,
-  FeedbackResponse,
+  OverrideRequest,
+  OverrideResponse,
+  Thresholds,
 } from "../types";
 
 const BASE_URL = "http://localhost:8000/api";
 
-async function get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+async function get<T>(
+  path: string,
+  params?: Record<string, string | number | undefined>
+): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
@@ -39,8 +45,15 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+type ThresholdParams = {
+  min_recordings?: number;
+  min_reference_words?: number;
+  high_wer_threshold?: number;
+};
+
 export const api = {
-  health: () => get<{ status: string; data_label: string; warning: string }>("/health"),
+  health: () =>
+    get<{ status: string; data_label: string; warning: string }>("/health"),
 
   districts: () => get<{ districts: string[] }>("/districts"),
 
@@ -48,29 +61,48 @@ export const api = {
 
   ageGroups: () => get<{ age_groups: string[] }>("/age-groups"),
 
-  werOverview: (params?: {
-    min_recordings?: number;
-    min_reference_words?: number;
-    high_wer_threshold?: number;
-  }) => get<WerResult[]>("/wer/overview", params as Record<string, number | undefined>),
+  /** Summary ribbon stats — threshold-sensitive */
+  summary: (params?: ThresholdParams) =>
+    get<SummaryStats>("/stats/summary", params as Record<string, number | undefined>),
+
+  werOverview: (params?: ThresholdParams) =>
+    get<WerResult[]>("/wer/overview", params as Record<string, number | undefined>),
 
   werDetail: (params: {
     district: string;
     gender?: string;
     age_group?: string;
-    min_recordings?: number;
-    min_reference_words?: number;
-    high_wer_threshold?: number;
-  }) => get<WerResult>("/wer/detail", params as Record<string, string | number | undefined>),
+  } & ThresholdParams) =>
+    get<WerResult>("/wer/detail", params as Record<string, string | number | undefined>),
 
-  coverageMatrix: (params?: { min_recordings?: number }) =>
+  /** Cell detail including naive_average_wer_pct for Math Modal */
+  werCellDetail: (params: {
+    district: string;
+    gender: string;
+    age_group: string;
+  } & ThresholdParams) =>
+    get<WerCellDetail>(
+      "/wer/cell-detail",
+      params as Record<string, string | number | undefined>
+    ),
+
+  coverageMatrix: (params?: ThresholdParams) =>
     get<CoverageMatrix>("/coverage/matrix", params as Record<string, number | undefined>),
 
-  priorities: (params?: {
-    min_recordings?: number;
-    high_wer_threshold?: number;
-  }) => get<PrioritiesResponse>("/priorities", params as Record<string, number | undefined>),
+  priorities: (params?: ThresholdParams) =>
+    get<PrioritiesResponse>("/priorities", params as Record<string, number | undefined>),
 
-  submitFeedback: (payload: FeedbackPayload) =>
-    post<FeedbackResponse>("/feedback", payload),
+  submitOverride: (payload: OverrideRequest) =>
+    post<OverrideResponse>("/overrides", payload),
+
+  /** Returns a URL string for CSV download (use window.open or anchor href) */
+  manifestUrl: (thresholds?: Thresholds): string => {
+    const url = new URL(`${BASE_URL}/export/manifest`);
+    if (thresholds) {
+      url.searchParams.set("min_recordings", String(thresholds.min_recordings));
+      url.searchParams.set("min_reference_words", String(thresholds.min_reference_words));
+      url.searchParams.set("high_wer_threshold", String(thresholds.high_wer_threshold));
+    }
+    return url.toString();
+  },
 };
